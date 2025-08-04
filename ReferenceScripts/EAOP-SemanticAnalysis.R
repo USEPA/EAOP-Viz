@@ -11,7 +11,7 @@
 
 ## The outputs of this file inculde:
 ## 1) The lists of all scored AOPs and eAOP as csv files
-##    'aopkess_**.xlsx', 
+##    'aopkess_**.xlsx',
 ## 2) The lists of the top 10 of each eAOP based on three different metrics
 ##    "eAOPTop10-PSSMean.xlsx", "eAOPTop10-SSSMin.xlsx", "eAOPTop10-SSSMean.xlsx"
 
@@ -38,23 +38,25 @@ library(ggrepel)
 ## 'AOP-wiki-data.xml' # XML file from the AOPWiki containing the data for analysis
 ## 'eLaops.named.xlsx' # Imports a list of all emergent AOPs (Originially identified in Pollesch et al., 2019)
 ## 'KE2KE_SS_Dups.xlsx' # An excel file with semantic similiarity scores between all KEs, 'Dups' indicates here that some KEs have multiple SS scores, based on multiple logical definitions
-## 'PSSEAOP-IndiciesfromeLAOPsNamed.csv' # Contains proper subset eAOPs so that they can be easily removed from the eLAOP list 
+## 'PSSEAOP-IndiciesfromeLAOPsNamed.csv' # Contains proper subset eAOPs so that they can be easily removed from the eLAOP list
 
 #### REMOVE BEFORE SUBMISSION/GENERALIZE TO NOT YOUR COMPUTER ####
 ## Set source directory
-sourceDir<-paste("~/Projects/GitHub/Emergent-AOP") ## Sets sourceDir variable to current working directory subfolder 'R'
+sourceDir<-paste("~/Projects/GitHub/EAOP-Viz") ## Sets sourceDir variable to current working directory subfolder 'R'
 ####
 
 ######################################$
 #### 1 - AOPWiki and Emergent AOPs ####
 ######################################$
 
-## Load AOP Network Analysis function from Pollesch et. al 2019 
-source("AOP-Net-Functions.R") ## Imports custom functions from location set by sourceDir variable
+## Load AOP Network Analysis function from Pollesch et. al 2019
+source("Source/AOP-Net-Functions.R") ## Imports custom functions from location set by sourceDir variable
 
 
 ## Provide AOP-Wiki XML file location
-fName<-paste(sourceDir,"/Data/AOP-wiki-data.xml",sep="") ##This assumes that there is a subfolder 'Data/AOPWikiSnapshots' within the working directory where the XML file is located
+fName<-paste(sourceDir,"/AOP-Wiki-XML/aop-wiki-xml-2025-01-01.xml",sep="") ##This assumes that there is a subfolder 'Data/AOPWikiSnapshots' within the working directory where the XML file is located
+
+fName<-paste(sourceDir,"/AOP-Wiki-XML/aop-wiki-xml-2019-01-01.xml",sep="") ##This assumes that there is a subfolder 'Data/AOPWikiSnapshots' within the working directory where the XML file is located
 
 xData<-read_xml(fName)
 xData<-xml_ns_strip(xData)
@@ -138,7 +140,7 @@ aos<-lapply(xml_find_all(xData, "/data/aop"),FUN=function(x){
   }
 })
 
-
+xml_find_all(xData, "/data/aop/key-events")
 ## KEs: more than one KE possible per aop, so must return list
 kes<-lapply(xml_find_all(xData, "/data/aop/key-events"),FUN=function(x){
   if("key-event"%in%xml_name(xml_children(x))){
@@ -147,6 +149,129 @@ kes<-lapply(xml_find_all(xData, "/data/aop/key-events"),FUN=function(x){
     return(NULL)
   }
 })
+# ####################START###############################
+# ############## TROUBLESHOOT THIS #######################
+# ########################################################
+
+#### Create data.frame for each aop that indicates if ke or ker data is missing and their union/intersection
+
+# Find all <aop> nodes
+aop_nodes <- xml_find_all(xData, "/data/aop")
+
+# Initialize vectors to store the information
+aop_ids <- vector()
+corresponding_ids <- vector()
+missing_key_events <- vector()
+missing_key_event_relationships <- vector()
+
+# Iterate over each <aop> node
+for (i in seq_along(aop_nodes)) {
+  current_aop <- aop_nodes[[i]]
+
+  # Extract the 'id' attribute
+  aop_id <- xml_attr(current_aop, "id")
+
+  # Check for <key-events>
+  key_events_nodes <- xml_find_all(current_aop, "key-events")
+  missing_key_events[i] <- length(key_events_nodes) == 0
+
+  # Check for <key-event-relationships>
+  key_event_relationships_nodes <- xml_find_all(current_aop, "key-event-relationships")
+  missing_key_event_relationships[i] <- length(key_event_relationships_nodes) == 0
+
+  # Find corresponding ID using the aopID data frame
+  matched_index <- match(aop_id, aopID$ref)
+  corresponding_id <- if (!is.na(matched_index)) aopID$ID[matched_index] else NA
+
+  # Store the results
+  aop_ids[i] <- aop_id
+  corresponding_ids[i] <- corresponding_id
+}
+
+# Create a data frame with the results
+results_df <- data.frame(
+  aop_id = aop_ids,
+  corresponding_id = corresponding_ids,
+  missing_key_events = missing_key_events,
+  missing_key_event_relationships = missing_key_event_relationships
+)
+
+# Add the 'both_missing' column
+results_df$both_missing <- results_df$missing_key_events & results_df$missing_key_event_relationships
+
+# Add the 'either_missing' column
+results_df$either_missing <- results_df$missing_key_events | results_df$missing_key_event_relationships
+
+# Print the results
+print(results_df)
+
+#############RETURN A LIST OF AOPS THAT ARE COMPLETE (not missing KE or KER data) ####
+
+library(xml2)
+
+# Find all <aop> nodes
+aop_nodes <- xml_find_all(xData, "/data/aop")
+
+# Initialize vectors to store the information
+aop_ids <- vector()
+corresponding_ids <- vector()
+missing_key_events <- vector()
+missing_key_event_relationships <- vector()
+
+# Iterate over each <aop> node
+for (i in seq_along(aop_nodes)) {
+  current_aop <- aop_nodes[[i]]
+
+  # Extract the 'id' attribute
+  aop_id <- xml_attr(current_aop, "id")
+
+  # Check for <key-events>
+  key_events_nodes <- xml_find_all(current_aop, "key-events")
+  missing_key_events[i] <- length(key_events_nodes) == 0
+
+  # Check for <key-event-relationships>
+  key_event_relationships_nodes <- xml_find_all(current_aop, "key-event-relationships")
+  missing_key_event_relationships[i] <- length(key_event_relationships_nodes) == 0
+
+  # Find corresponding ID using the aopID data frame
+  matched_index <- match(aop_id, aopID$ref)
+  corresponding_id <- if (!is.na(matched_index)) aopID$ID[matched_index] else NA
+
+  # Store the results
+  aop_ids[i] <- aop_id
+  corresponding_ids[i] <- corresponding_id
+}
+
+# Create a data frame with the results
+results_df <- data.frame(
+  aop_id = aop_ids,
+  corresponding_id = corresponding_ids,
+  missing_key_events = missing_key_events,
+  missing_key_event_relationships = missing_key_event_relationships
+)
+
+# Add the 'both_missing' column
+results_df$both_missing <- results_df$missing_key_events & results_df$missing_key_event_relationships
+
+# Add the 'either_missing' column
+results_df$either_missing <- results_df$missing_key_events | results_df$missing_key_event_relationships
+
+# Filter the data frame to include only entries where 'either_missing' is FALSE
+filtered_df <- results_df[!results_df$either_missing, ]
+
+# Rename the columns to 'ref' and 'ID'
+complete_aops<- data.frame(
+  ref = filtered_df$aop_id,
+  ID = filtered_df$corresponding_id
+)
+
+# Print the formatted data frame
+
+
+print(complete_aops)
+########### END CREATION OF FILTERED AOPs
+##########################################
+
 
 ## KERs: more than one KER per aop, each with aop-specific "adjaceny", "quantitative understanding", and "WoE"
 ## So must return data frame of KERs
@@ -164,6 +289,177 @@ kers<-lapply(xml_find_all(xData, "/data/aop/key-event-relationships"),FUN=functi
   }
 })
 
+########Attempted filtered KERS ############
+library(xml2)
+
+# Assuming filtered_df is already created and contains 'ref' and 'ID'
+# filtered_df <- data.frame(ref = ..., ID = ...)
+
+# Find all <key-event-relationships> nodes
+ker_nodes <- xml_find_all(xData, "/data/aop/key-event-relationships")
+
+# Filter <key-event-relationships> nodes based on the IDs present in filtered_df
+filtered_ker_nodes <- ker_nodes[sapply(ker_nodes, function(node) {
+  aop_id <- xml_attr(xml_parent(node), "id")
+  aop_id %in% formatted_df$ref
+})]
+
+# Create kers for the filtered <key-event-relationships> nodes
+kers_filtered <- lapply(filtered_ker_nodes, function(x) {
+  if ("relationship" %in% xml_name(xml_children(x))) {
+    return(data.frame(
+      ID = kerID$ID[match(xml_attr(xml_find_all(x, "relationship"), "id"), kerID$ref)],
+      adjacency = xml_text(xml_find_all(x, "relationship/adjacency")),
+      quant = xml_text(xml_find_all(x, "relationship/quantitative-understanding-value")),
+      woe = xml_text(xml_find_all(x, "relationship/evidence")),
+      stringsAsFactors = FALSE
+    ))
+  } else {
+    return(NULL)
+  }
+})
+
+# Print the kers data frame list
+print(kers_filtered)
+
+# Assuming kerData, mies, and aos are already defined
+
+# Initialize a list to store updated kers
+updated_kers <- vector("list", length(kers_filtered))
+
+# Iterate over each element in kers_filtered
+for (i in seq_along(kers_filtered)) {
+  current_ker <- kers_filtered[[i]]
+
+  if (!is.null(current_ker) && nrow(current_ker) > 0) {
+    # Find KEup and KEdown based on the current KER ID
+    KEup <- kerData$KEup[match(current_ker$ID, kerData$ID)]
+    KEDup <- sapply(KEup, FUN = function(x) {
+      if (x %in% mies[[i]]) {
+        return("MIE")
+      } else if (x %in% aos[[i]]) {
+        return("AO")
+      } else {
+        return("KE")
+      }
+    })
+
+    KEdown <- kerData$KEdown[match(current_ker$ID, kerData$ID)]
+    KEDdown <- sapply(KEdown, FUN = function(x) {
+      if (x %in% mies[[i]]) {
+        return("MIE")
+      } else if (x %in% aos[[i]]) {
+        return("AO")
+      } else {
+        return("KE")
+      }
+    })
+
+    # Create a new data frame for the current KER with additional information
+    updated_kers[[i]] <- data.frame(
+      ID = current_ker$ID,
+      KEup = KEup,
+      KEDup = KEDup,
+      KEdown = KEdown,
+      KEDdown = KEDdown,
+      adjacency = current_ker$adjacency,
+      quant = current_ker$quant,
+      woe = current_ker$woe,
+      row.names = NULL,
+      stringsAsFactors = FALSE
+    )
+  }
+}
+
+# Combine the list into a single data frame
+updated_kers_df <- do.call(rbind, updated_kers)
+
+# Print the updated kers data frame
+print(updated_kers_df)
+
+#### potentially too many KERs? Checking for duplicates and removing#####
+# Assuming kerData, mies, and aos are already defined
+
+# Initialize a list to store updated kers
+updated_kers <- vector("list", length(kers_filtered))
+
+# Iterate over each element in kers_filtered
+for (i in seq_along(kers_filtered)) {
+  current_ker <- kers_filtered[[i]]
+
+  if (!is.null(current_ker) && nrow(current_ker) > 0) {
+    # Find KEup and KEdown based on the current KER ID
+    KEup <- kerData$KEup[match(current_ker$ID, kerData$ID)]
+    KEDup <- sapply(KEup, FUN = function(x) {
+      if (x %in% mies[[i]]) {
+        return("MIE")
+      } else if (x %in% aos[[i]]) {
+        return("AO")
+      } else {
+        return("KE")
+      }
+    })
+
+    KEdown <- kerData$KEdown[match(current_ker$ID, kerData$ID)]
+    KEDdown <- sapply(KEdown, FUN = function(x) {
+      if (x %in% mies[[i]]) {
+        return("MIE")
+      } else if (x %in% aos[[i]]) {
+        return("AO")
+      } else {
+        return("KE")
+      }
+    })
+
+    # Create a new data frame for the current KER with additional information
+    updated_kers[[i]] <- data.frame(
+      ID = current_ker$ID,
+      KEup = KEup,
+      KEDup = KEDup,
+      KEdown = KEdown,
+      KEDdown = KEDdown,
+      adjacency = current_ker$adjacency,
+      quant = current_ker$quant,
+      woe = current_ker$woe,
+      row.names = NULL,
+      stringsAsFactors = FALSE
+    )
+  }
+}
+
+# Combine the list into a single data frame
+updated_kers_df <- do.call(rbind, updated_kers)
+
+# Remove duplicate rows based on all columns
+updated_kers_df_unique <- unique(updated_kers_df)
+
+# Print the updated kers data frame without duplicates
+print(updated_kers_df_unique)
+
+#### Why are there more entries in updated_kers_df_uniqye than in kerID?
+
+suming updated_kers_df_unique and kerData are already defined
+
+# Extract the IDs from updated_kers_df_unique
+unique_ids <- updated_kers_df_unique$ID
+
+# Extract the IDs from kerData
+ker_data_ids <- kerData$ID
+
+# Find IDs that are in updated_kers_df_unique but not in kerData
+missing_ids <- setdiff(unique_ids, ker_data_ids)
+
+# Print the missing IDs
+if (length(missing_ids) > 0) {
+  cat("The following IDs from updated_kers_df_unique do not appear in kerData:\n")
+  print(missing_ids)
+} else {
+  cat("All IDs from updated_kers_df_unique are present in kerData.\n")
+}
+
+
+
+
 ## add kes and MIE/AO designation (which is AOP-specific) for each KER in kers data.frame
 for(i in 1:length(kers)){
   if(length(kers[[i]])>0){
@@ -179,7 +475,7 @@ for(i in 1:length(kers)){
         }
       }
     })
-    
+
     KEdown<-kerData$KEdown[match(kers[[i]]$ID,kerData$ID)]
     KEDdown<-sapply(KEdown, FUN=function(x){
       if(x%in%mies[[i]]){
@@ -192,7 +488,7 @@ for(i in 1:length(kers)){
         }
       }
     })
-    
+
     kers[[i]]<-data.frame(
       ID=kers[[i]]$ID,
       KEup=KEup,
@@ -207,6 +503,38 @@ for(i in 1:length(kers)){
     )
   }
 }
+
+
+
+### Test to create aopData using filtered data from filtered_df
+
+# Find all <aop> nodes
+aop_nodes <- xml_find_all(xData, "/data/aop")
+
+# Filter <aop> nodes based on IDs present in formatted_df
+filtered_aop_nodes <- aop_nodes[xml_attr(aop_nodes, "id") %in% formatted_df$ref]
+
+# Extract the corresponding statuses and other attributes
+oecdStatus_filtered <- oecdStatus[xml_attr(aop_nodes, "id") %in% formatted_df$ref]
+saaopStatus_filtered <- saaopStatus[xml_attr(aop_nodes, "id") %in% formatted_df$ref]
+mies_filtered <- mies[xml_attr(aop_nodes, "id") %in% formatted_df$ref]
+aos_filtered <- aos[xml_attr(aop_nodes, "id") %in% formatted_df$ref]
+kes_filtered <- kes[xml_attr(aop_nodes, "id") %in% formatted_df$ref]
+kers_filtered <- kers[xml_attr(aop_nodes, "id") %in% formatted_df$ref]
+
+# Create the aopData data frame using only the filtered <aop> nodes
+aopData <- data.frame(
+  ID = formatted_df$ID,
+  oecdStatus = oecdStatus_filtered,
+  saaopStatus = saaopStatus_filtered,
+  mies = I(mies_filtered),
+  aos = I(aos_filtered),
+  kes = I(kes_filtered),
+  kers = I(kers_filtered),
+  stringsAsFactors = FALSE
+)
+
+#######################################
 
 
 aopData<-data.frame(
@@ -250,7 +578,7 @@ dim(KE2KEpre)[1]-dim(KE2KE)[1] # Shows number of duplicate entries removed # 89,
 
 ## NOTE: KE2KE here is same as KE2KE_SS (Need to verify?)
 
-## Create a list that has quantitative and weight of evidence ratings for KERs based on their KEs  
+## Create a list that has quantitative and weight of evidence ratings for KERs based on their KEs
 kerWeights<-data.frame("KEX"=c(),"KEY"=c(),"woe"=c(),"quant"=c())
 for(i in 1:length(kers)){
 kerWs<-as.data.frame(cbind(kers[[i]]$KEup,kers[[i]]$KEdown,kers[[i]]$woe,kers[[i]]$quant))
@@ -285,7 +613,7 @@ kerTest[which(kerTest$qquant.x!=kerTest$qquant.y),]
 KESS<-function(X,Y,KESSDF=KE2KE_SS){
   #If statement tests to make sure that the KEs supplied are in the KE
   if(( X %in% KESSDF$KEX || X %in% KESSDF$KEY) && ( Y %in% KESSDF$KEX || Y %in% KESSDF$KEY)){
-    
+
     return(max(KESSDF[which(KESSDF$KEX==X & KESSDF$KEY==Y),]$score,KESSDF[which(KESSDF$KEX==Y & KESSDF$KEY==X),]$score))}
   else {return(NA)}
 }
@@ -298,9 +626,9 @@ KEKERW<-function(X,Y,met,KERDF=kerWQ){
     if(length(KERDF[which(KERDF$KEX==X & KERDF$KEY==Y),met])>1 && !all(is.na(KERDF[which(KERDF$KEX==X & KERDF$KEY==Y),met]))){
       return(max(KERDF[which(KERDF$KEX==X & KERDF$KEY==Y),met], na.rm=T))}
     else if(length(KERDF[which(KERDF$KEX==X & KERDF$KEY==Y),met])>1 && all(is.na(KERDF[which(KERDF$KEX==X & KERDF$KEY==Y),met]))){
-      return(NA)} 
+      return(NA)}
     else return(KERDF[which(KERDF$KEX==X & KERDF$KEY==Y),met])
-  } 
+  }
   else {
     return(NA)}
 }
@@ -310,14 +638,14 @@ KEKERW<-function(X,Y,met,KERDF=kerWQ){
 #### 2.1 - Calculate the semantic similarity metrics for all AOPs ####
 #####################################################################$
 AOPKESSINFO<-list() # Create a list to store the metric scores
-AOPIDs<-aopID$ID # Assign the IDs that you want to run in the loop, in this case it is all AOPs 
+AOPIDs<-aopID$ID # Assign the IDs that you want to run in the loop, in this case it is all AOPs
 AOPKESSSData<-data.frame(AOP=aopID$ID,SSSMean=NA,SSSMin=NA,PSSMean=NA,SQWMean=NA,SQWMin=NA,SQQMean=NA,SQQMin=NA) #Create a data.frame structure to store metric values for each AOP that added to the ...INFO list
 
 for(AOPID in AOPIDs){
-  
+
   # Gets KE information based on the AOPID specified in the loop
   AOPKEs<-as.vector(unlist(c(aopData[aopData$ID==AOPID,]$mies, aopData[aopData$ID==AOPID,]$kes, aopData[aopData$ID==AOPID,]$aos)))
-  # KE Targets to get names (titles) for 
+  # KE Targets to get names (titles) for
   KETars<-as.numeric(AOPKEs)
   # Catches any AOPs with only a single KE and assigns their scores as 'NA' for all metrics
   if(length(KETars)<2)
@@ -341,8 +669,8 @@ for(AOPID in AOPIDs){
         keData<-rbind(keData,missingKEdf)
         }
         }
-    
-    # Creates all combinations of all KE pairs in the AOP for the pairwise semantic similarity scores 
+
+    # Creates all combinations of all KE pairs in the AOP for the pairwise semantic similarity scores
     allpairs<-combn(KETars,2)
     apdf<-as.data.frame(t(allpairs))
     apdf<-data.frame(apdf,SS=NA,qwoe=NA,qquant=NA)
@@ -351,10 +679,10 @@ for(AOPID in AOPIDs){
       #print(paste(apdf[i,1],apdf[i,2]))
       apdf[i,"qwoe"]<-KEKERW(apdf[i,1],apdf[i,2],met="qwoe")
       apdf[i,"qquant"]<-KEKERW(apdf[i,1],apdf[i,2],met="qquant")}
-    apdf$isadj=FALSE    
+    apdf$isadj=FALSE
     KEPairs<-cbind(KETars, c(KETars[-1], KETars[1]))
     KEPairs<-head(KEPairs,-1)
-    
+
     # Need to know if a KE pair is adjacent in the AOP, if so, then it is marked as adjacent and it can be used in the metric
     for(i in 1:dim(apdf)[1]){
       for(j in 1:dim(KEPairs)[1]){
@@ -363,7 +691,7 @@ for(AOPID in AOPIDs){
         }
       }
     }
-    
+
     apdf$CUMMEANSS[which(apdf$isadj==T)]=cummean(apdf$SS[which(apdf$isadj==T)])
     apdf$CUMMINSS[which(apdf$isadj==T)]=cummin(apdf$SS[which(apdf$isadj==T)])
     #apdf$CUMSUMSS[which(apdf$isadj==T)]=cumsum(apdf$SS[which(apdf$isadj==T)]) # Removed since SUM metrics are highly dependent on AOP length
@@ -372,7 +700,7 @@ for(AOPID in AOPIDs){
     #apdf$CUMSUMQW[which(apdf$isadj==T)]=cumsum(apdf$qwoe[which(apdf$isadj==T)]) # Removed since SUM metrics are highly dependent on AOP length
     apdf$CUMMEANQQ[which(apdf$isadj==T)]=cummean(apdf$qquant[which(apdf$isadj==T)])
     apdf$CUMMINQQ[which(apdf$isadj==T)]=cummin(apdf$qquant[which(apdf$isadj==T)])
-    
+
     AOPKESSSData[which(AOPKESSSData$AOP==AOPID),]$SSSMean<-tail(apdf$CUMMEANSS,1)
     AOPKESSSData[which(AOPKESSSData$AOP==AOPID),]$SSSMin<-tail(apdf$CUMMINSS,1)
     #AOPKESSSData[which(AOPKESSSData$AOP==AOPID),]$SSSSum<-tail(apdf$CUMSUMSS,1) # Removed since SUM metrics are highly dependent on AOP length
@@ -382,7 +710,7 @@ for(AOPID in AOPIDs){
     AOPKESSSData[which(AOPKESSSData$AOP==AOPID),]$PSSMean<-mean(apdf$SS)
     AOPKESSSData[which(AOPKESSSData$AOP==AOPID),]$SQQMean<-tail(apdf$CUMMEANQQ,1)
     AOPKESSSData[which(AOPKESSSData$AOP==AOPID),]$SQQMin<-tail(apdf$CUMMINQQ,1)
-    
+
     AOPKESSINFO[[as.character(AOPID)]]<-apdf
 
   }
@@ -410,7 +738,7 @@ eAOPIDs<-as.numeric(rownames(eLAOPs[-PSSEAOPs,])) # This creates the list of all
 eAOPKESSSData<-data.frame(EAOP=eLAOPs[,1],SSSMean=NA,SSSMin=NA,PSSMean=NA,SQWMean=NA,SQWMin=NA,SQQMean=NA,SQQMin=NA)
 
 for(eAOPID in eAOPIDs){
-  
+
   allpairs<-combn(as.numeric(eLAOPs[eAOPID,][!is.na(eLAOPs[eAOPID,])][-1]),2)
     apdf<-as.data.frame(t(allpairs))
     apdf<-data.frame(apdf,SS=NA,qwoe=NA,qquant=NA)
@@ -419,11 +747,11 @@ for(eAOPID in eAOPIDs){
       apdf[i,"qwoe"]<-KEKERW(apdf[i,1],apdf[i,2],met="qwoe")
       apdf[i,"qquant"]<-KEKERW(apdf[i,1],apdf[i,2],met="qquant")}
     apdf$isadj=FALSE
-    
+
     KETars<-eLAOPs[eAOPID,-1][!is.na(eLAOPs[eAOPID,-1])]
     KEPairs<-cbind(KETars, c(KETars[-1], KETars[1]))
     KEPairs<-head(KEPairs,-1)
-    
+
     for(i in 1:dim(apdf)[1]){
       for(j in 1:dim(KEPairs)[1]){
         if(all(apdf[i,1:2]==KEPairs[j,])){
@@ -431,7 +759,7 @@ for(eAOPID in eAOPIDs){
         }
       }
     }
-    
+
     apdf$CUMMEAN[which(apdf$isadj==T)]=cummean(apdf$SS[which(apdf$isadj==T)])
     apdf$CUMMIN[which(apdf$isadj==T)]=cummin(apdf$SS[which(apdf$isadj==T)])
     #apdf$CUMSUM[which(apdf$isadj==T)]=cumsum(apdf$SS[which(apdf$isadj==T)]) # Removed since SUM metrics are highly dependent on AOP length
@@ -440,8 +768,8 @@ for(eAOPID in eAOPIDs){
     #apdf$CUMSUMWQ[which(apdf$isadj==T)]=cumsum(apdf$qwoe[which(apdf$isadj==T)]) # Removed since SUM metrics are highly dependent on AOP length
     apdf$CUMMEANQQ[which(apdf$isadj==T)]=cummean(apdf$qquant[which(apdf$isadj==T)])
     apdf$CUMMINQQ[which(apdf$isadj==T)]=cummin(apdf$qquant[which(apdf$isadj==T)])
-    
-    
+
+
     eAOPKESSSData[eAOPID,]$SSSMean<-tail(apdf$CUMMEAN,1)
     eAOPKESSSData[eAOPID,]$SSSMin<-tail(apdf$CUMMIN,1)
     #eAOPKESSSData[eAOPID,]$SSSSum<-tail(apdf$CUMSUM,1) # Removed since SUM metrics are highly dependent on AOP length
@@ -451,23 +779,23 @@ for(eAOPID in eAOPIDs){
     #eAOPKESSSData[eAOPID,]$SWQSum<-tail(apdf$CUMSUMWQ,1) # Removed since SUM metrics are highly dependent on AOP length
     eAOPKESSSData[eAOPID,]$SQQMean<-tail(apdf$CUMMEANQQ,1)
     eAOPKESSSData[eAOPID,]$SQQMin<-tail(apdf$CUMMINQQ,1)
-    
+
     eAOPKESSINFO[[as.character(eAOPID)]]<-apdf
-    
+
 }
 
 
   openxlsx::write.xlsx(eAOPKESSSData, paste(sourceDir,paste('eaopkess_',format(Sys.time(), "%Y-%m-%d_%H-%M"),sep=""),'.xlsx',sep=""))
-  
+
   eAOPKESSSMeanDataSorted<-eAOPKESSSData[order(-eAOPKESSSData$SSSMean),]
   eAOPKESSSMinDataSorted<-eAOPKESSSData[order(-eAOPKESSSData$SSSMin),]
   eAOPKEPSSMeanDataSorted<-eAOPKESSSData[order(-eAOPKESSSData$PSSMean),]
-  
+
   # Gets the eAOP IDs for the top 10 emergent AOPs based on SSS
   eAOPtop10SSSMean<-as.numeric(rownames(head(eAOPKESSSMeanDataSorted,10)))
   eAOPtop10SSSMin<-as.numeric(rownames(head(eAOPKESSSMinDataSorted,10)))
   eAOPtop10PSSMean<-as.numeric(rownames(head(eAOPKEPSSMeanDataSorted,10)))
-  
+
 
 
 #####################################################################$
@@ -478,7 +806,7 @@ eAOPIDs<-eAOPtop10SSSMean
 
 for(eAOPID in eAOPIDs){
   eLAOPs[eAOPID,-1][!is.na(eLAOPs[eAOPID,-1])]
-  #### KE Targets to get names (titles) for 
+  #### KE Targets to get names (titles) for
   KETars<-eLAOPs[eAOPID,-1][!is.na(eLAOPs[eAOPID,-1])]
   #Need to check that all KEs from emergent AOPs have data in the keData data.frame()
   if(!length(which(keData$ID %in% KETars))==length(KETars)){
@@ -488,15 +816,15 @@ for(eAOPID in eAOPIDs){
       keData<-rbind(keData,missingKEdf)
     }
   }
-  
+
   #Create a data frame with data for the KEs specified in KETars
   KETarsInf<-as.data.frame(keData[which(keData$ID %in% KETars),])
   #Ensure KE titles are returned in the order that the KEs were specified in KETars
   KETarsInf<-KETarsInf %>% arrange(factor(ID, levels = KETars))
   #Create columns for AOPs that KEs are MIEs, KEs, or AOs in
   KETarsInf[,c('IsMIEIn','IsKEIn','IsAOIn','SS',)]<-NA
-  
-  #If we want to add the AOPs that these are used in, we can do the following searches 
+
+  #If we want to add the AOPs that these are used in, we can do the following searches
   #This finds all the AOPs that the KETars are used in, based on if they are used as MIEs, KEs, or AOs
   KETarsMIEs<-sapply(KETars, function(x, list) which(unlist(lapply(list,function(y,z) z %in% y, z=x))),list=aopData$mies)
   KETarsKEs<-sapply(KETars, function(x, list) which(unlist(lapply(list,function(y,z) z %in% y, z=x))),list=aopData$kes)
@@ -507,8 +835,8 @@ for(eAOPID in eAOPIDs){
     KETarsInf[i,]$IsKEIn<-paste(aopData[KETarsKEs[[i]],]$ID,collapse=", ")
     KETarsInf[i,]$IsAOIn<-paste(aopData[KETarsAOs[[i]],]$ID,collapse=", ")
   }
-  
-  
+
+
   eAOPINFO[[as.character(eAOPID)]]<-KETarsInf
 }
 
@@ -520,7 +848,7 @@ eAOPIDs<-eAOPtop10SSSMin
 
 for(eAOPID in eAOPIDs){
   eLAOPs[eAOPID,-1][!is.na(eLAOPs[eAOPID,-1])]
-  #### KE Targets to get names (titles) for 
+  #### KE Targets to get names (titles) for
   KETars<-eLAOPs[eAOPID,-1][!is.na(eLAOPs[eAOPID,-1])]
   #Need to check that all KEs from emergent AOPs have data in the keData data.frame()
   if(!length(which(keData$ID %in% KETars))==length(KETars)){
@@ -530,15 +858,15 @@ for(eAOPID in eAOPIDs){
       keData<-rbind(keData,missingKEdf)
     }
   }
-  
+
   #Create a data frame with data for the KEs specified in KETars
   KETarsInf<-as.data.frame(keData[which(keData$ID %in% KETars),])
   #Ensure KE titles are returned in the order that the KEs were specified in KETars
   KETarsInf<-KETarsInf %>% arrange(factor(ID, levels = KETars))
   #Create columns for AOPs that KEs are MIEs, KEs, or AOs in
   KETarsInf[,c('IsMIEIn','IsKEIn','IsAOIn')]<-NA
-  
-  #If we want to add the AOPs that these are used in, we can do the following searches 
+
+  #If we want to add the AOPs that these are used in, we can do the following searches
   #This finds all the AOPs that the KETars are used in, based on if they are used as MIEs, KEs, or AOs
   KETarsMIEs<-sapply(KETars, function(x, list) which(unlist(lapply(list,function(y,z) z %in% y, z=x))),list=aopData$mies)
   KETarsKEs<-sapply(KETars, function(x, list) which(unlist(lapply(list,function(y,z) z %in% y, z=x))),list=aopData$kes)
@@ -549,8 +877,8 @@ for(eAOPID in eAOPIDs){
     KETarsInf[i,]$IsKEIn<-paste(aopData[KETarsKEs[[i]],]$ID,collapse=", ")
     KETarsInf[i,]$IsAOIn<-paste(aopData[KETarsAOs[[i]],]$ID,collapse=", ")
   }
-  
-  
+
+
   eAOPINFO[[as.character(eAOPID)]]<-KETarsInf
 }
 
@@ -563,7 +891,7 @@ eAOPIDs<-eAOPtop10PSSMean
 
 for(eAOPID in eAOPIDs){
   eLAOPs[eAOPID,-1][!is.na(eLAOPs[eAOPID,-1])]
-  #### KE Targets to get names (titles) for 
+  #### KE Targets to get names (titles) for
   KETars<-eLAOPs[eAOPID,-1][!is.na(eLAOPs[eAOPID,-1])]
   #Need to check that all KEs from emergent AOPs have data in the keData data.frame()
   if(!length(which(keData$ID %in% KETars))==length(KETars)){
@@ -573,15 +901,15 @@ for(eAOPID in eAOPIDs){
       keData<-rbind(keData,missingKEdf)
     }
   }
-  
+
   #Create a data frame with data for the KEs specified in KETars
   KETarsInf<-as.data.frame(keData[which(keData$ID %in% KETars),])
   #Ensure KE titles are returned in the order that the KEs were specified in KETars
   KETarsInf<-KETarsInf %>% arrange(factor(ID, levels = KETars))
   #Create columns for AOPs that KEs are MIEs, KEs, or AOs in
   KETarsInf[,c('IsMIEIn','IsKEIn','IsAOIn')]<-NA
-  
-  #If we want to add the AOPs that these are used in, we can do the following searches 
+
+  #If we want to add the AOPs that these are used in, we can do the following searches
   #This finds all the AOPs that the KETars are used in, based on if they are used as MIEs, KEs, or AOs
   KETarsMIEs<-sapply(KETars, function(x, list) which(unlist(lapply(list,function(y,z) z %in% y, z=x))),list=aopData$mies)
   KETarsKEs<-sapply(KETars, function(x, list) which(unlist(lapply(list,function(y,z) z %in% y, z=x))),list=aopData$kes)
@@ -592,8 +920,8 @@ for(eAOPID in eAOPIDs){
     KETarsInf[i,]$IsKEIn<-paste(aopData[KETarsKEs[[i]],]$ID,collapse=", ")
     KETarsInf[i,]$IsAOIn<-paste(aopData[KETarsAOs[[i]],]$ID,collapse=", ")
   }
-  
-  
+
+
   eAOPINFO[[as.character(eAOPID)]]<-KETarsInf
 }
 
@@ -601,11 +929,11 @@ openxlsx::write.xlsx(eAOPINFO,"eAOPTop10-PSSMean.xlsx")
 
 # GET EAOP AND AOP OVERALL METRIC INFORMATION
 length(!is.na(AOPKESSSData$SSSMean))
-mean(AOPKESSSData$SSSMean,na.rm=T) 
-mean(AOPKESSSData$SSSMin,na.rm=T) 
-mean(AOPKESSSData$PSSMean,na.rm=T) 
+mean(AOPKESSSData$SSSMean,na.rm=T)
+mean(AOPKESSSData$SSSMin,na.rm=T)
+mean(AOPKESSSData$PSSMean,na.rm=T)
 
-length(!is.na(eAOPKESSSData$SSSMean)) 
-mean(eAOPKESSSData$SSSMean,na.rm=T) 
-mean(eAOPKESSSData$SSSMin,na.rm=T) 
+length(!is.na(eAOPKESSSData$SSSMean))
+mean(eAOPKESSSData$SSSMean,na.rm=T)
+mean(eAOPKESSSData$SSSMin,na.rm=T)
 mean(eAOPKESSSData$PSSMean,na.rm=T)
